@@ -39,7 +39,7 @@ First log into both aws accounts with `aws sso login`. Then substitute out the p
 <aws region name of the target region> = region2
 <path of the SSMs to recursively copy (use '/' for all)> = /path
 ```
-python3 cross_account_replicate_ssm_parameters.py -sp <aws profile name of the source account> -tp <aws profile name of the target account> -sr <aws region name of the source region> -tr <aws region name of the target region> -p <path of the SSMs to recursively copy (use '/' for all)>
+python3 ./local/cross_account_replicate_ssm_parameters.py -sp <aws profile name of the source account> -tp <aws profile name of the target account> -sr <aws region name of the source region> -tr <aws region name of the target region> -p <path of the SSMs to recursively copy (use '/' for all)>
 ```
 
 ## NOTE/WARNING:
