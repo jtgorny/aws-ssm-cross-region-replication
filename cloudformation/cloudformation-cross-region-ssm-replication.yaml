@@ -1,0 +1,120 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: 'AWS SSM Cross-Region Replication'
+Parameters:
+  InitialTransferLambdaName:
+    Type: String
+    Description: Must be unique, globally.
+    Default: "AWS-SSM-Initial-Copy"
+  FutureReplicationLambdaName:
+    Type: String
+    Description: Must be unique, globally.
+    Default: "AWS-SSM-Replicator"
+  TargetAccountNumber:
+    Type: String
+    Description: Target AWS account number.
+  SourceRegion:
+    Type: String
+    Description: Source region for SSM Parameter replication.
+    Default: "us-east-1"
+  TargetRegion:
+    Type: String
+    Description: Target region for SSM Parameter replication.
+    Default: "us-west-2"
+  SourceCodeS3Bucket:
+    Type: String
+    Description: Source bucket to pull zipped python functions from.
+  Owner:
+    Type: String
+    Description: Must be a vaild email address.
+    Default: 'foo@bar.com'
+Outputs:
+  InitialTransferLambdaName:
+    Description: Initial replication lambda that was created.
+    Value: !Ref InitialLambdaName
+  FutureReplicationLambdaName:
+    Description: Future replication lambda that was created.
+    Value: !Ref FutureLambdaName
+Resources:
+  InitialLambdaName:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref InitialTransferLambdaName
+      Code:
+        S3Bucket: !Ref SourceCodeS3Bucket
+        S3Key: initialreplicatessm.zip
+      Description: Lambda that replicates SSMs across regions
+      MemorySize: 128
+      Handler: lambda_function.lambda_handler
+      Role: LambdaExecutionRoleInitial
+      Timeout: 30
+      Runtime: python3.8
+    DependsOn: LambdaExecutionRoleInitial
+  LambdaExecutionRoleInitial:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument: {
+        "Statement": [
+          {
+            "Action": [ "sts:AssumeRole" ],
+            "Effect": "Allow",
+            "Principal": {
+              "Service": [ "lambda.amazonaws.com" ]
+            }
+          }
+        ]
+      }
+      Path: "/"
+      Policies:
+        - PolicyName: LambdaSSMInitialCopyPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 'ssm:PutParameter'
+                Resource: !Sub 'arn:aws:ssm:${TargetRegion}:${TargetAccountNumber}:*'
+              - Effect: Allow
+                Action: 'ssm:GetParametersByPath'
+                Resource: !Sub 'arn:aws:ssm:${SourceRegion}:${TargetAccountNumber}:*'
+      RoleName: LambdaSSMInitialCopyRole
+  FutureLambdaName:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref FutureReplicationLambdaName
+      Code:
+        S3Bucket: !Ref SourceCodeS3Bucket
+        S3Key: futurereplicatessm.zip
+      Description: Lambda that replicates SSM CRUD operations across regions
+      MemorySize: 128
+      Handler: lambda_function.lambda_handler
+      Role: LambdaExecutionRoleFuture
+      Timeout: 30
+      Runtime: python3.8
+    DependsOn: LambdaExecutionRoleFuture
+  LambdaExecutionRoleFuture:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument: {
+        "Statement": [
+          {
+            "Action": [ "sts:AssumeRole" ],
+            "Effect": "Allow",
+            "Principal": {
+              "Service": [ "lambda.amazonaws.com" ]
+            }
+          }
+        ]
+      }
+      Path: "/"
+      Policies:
+        - PolicyName: LambdaSSMFutureReplicatePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [
+                  'ssm:PutParameter',
+                  'ssm:DeleteParameter',
+                  'ssm:DeleteParameters'
+                ]
+                Resource: !Sub 'arn:aws:ssm:${TargetRegion}:${TargetAccountNumber}:*'
+      RoleName: LambdaSSMFutureReplicateRole
