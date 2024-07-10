@@ -10,6 +10,9 @@ intended only to be used as a Lambda since using CloudTrail and EventBridge are 
 - boto3 installed
 - Access to multiple regions within AWS accounts
 
+## Architecture:
+![SSM CRR Architecture](./assets/ssm_replication.png)
+
 ## Usage:
 
 ### CloudFormation
