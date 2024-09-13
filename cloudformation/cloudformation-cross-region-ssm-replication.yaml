@@ -9,6 +9,9 @@ Parameters:
     Type: String
     Description: Must be unique, globally.
     Default: "AWS-SSM-Replicator"
+  SourceAccountNumber:
+    Type: String
+    Description: Target AWS account number.
   TargetAccountNumber:
     Type: String
     Description: Target AWS account number.
@@ -44,9 +47,12 @@ Resources:
         S3Key: initialreplicatessm.zip
       Description: Lambda that replicates SSMs across regions
       MemorySize: 128
-      Handler: lambda_function.lambda_handler
+      Handler: initial_replicate_ssm_parameters.lambda_handler
       Role: !GetAtt LambdaExecutionRoleInitial.Arn
       Timeout: 30
+      Environment:
+        Variables:
+          targetRegion: !Ref TargetRegion
       Runtime: python3.12
     DependsOn: LambdaExecutionRoleInitial
   LambdaExecutionRoleInitial:
@@ -64,6 +70,8 @@ Resources:
         ]
       }
       Path: "/"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
         - PolicyName: LambdaSSMInitialCopyPolicy
           PolicyDocument:
@@ -85,9 +93,12 @@ Resources:
         S3Key: futurereplicatessm.zip
       Description: Lambda that replicates SSM CRUD operations across regions
       MemorySize: 128
-      Handler: lambda_function.lambda_handler
+      Handler: continuous_replicate_ssm_parameters.lambda_handler
       Role: !GetAtt LambdaExecutionRoleFuture.Arn
       Timeout: 30
+      Environment:
+        Variables:
+          targetRegion: !Ref TargetRegion
       Runtime: python3.12
     DependsOn: LambdaExecutionRoleFuture
   LambdaExecutionRoleFuture:
@@ -105,6 +116,8 @@ Resources:
         ]
       }
       Path: "/"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
         - PolicyName: LambdaSSMFutureReplicatePolicy
           PolicyDocument:
@@ -117,4 +130,9 @@ Resources:
                   'ssm:DeleteParameters'
                 ]
                 Resource: !Sub 'arn:aws:ssm:${TargetRegion}:${TargetAccountNumber}:*'
+              - Effect: Allow
+                Action: [
+                  'ssm:GetParameter'
+                ]
+                Resource: !Sub 'arn:aws:ssm:${SourceRegion}:${SourceAccountNumber}:*'
       RoleName: LambdaSSMFutureReplicateRole
